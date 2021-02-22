@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="timer-style.css">
+
+    <title>Timer</title>
+</head>
+<body>
+
+    <div class="timer">
+
+        <div class="display">
+            <h1 class="time"></h1>
+        </div>
+
+            <div class="row-one">
+                <button data-time="0">0</button>
+                <button data-time="1">1</button>
+                <button data-time="2">2</button>
+                <button data-time="3">3</button>
+                <button data-time="4">4</button>
+            </div>
+            <div class="row-two">
+                <button data-time="5">5</button>
+                <button data-time="6">6</button>
+                <button data-time="7">7</button>
+                <button data-time="8">8</button>
+                <button data-time="9">9</button>
+            </div>
+            <div class="temp">
+            <div class="row-three">
+                <button data-time="start">START</button>
+                <button data-time="reset">RESET</button>
+            </div>
+
+            <div class="row-four">To use timer as stopwatch, please click start without selecting a duration.</div>
+        </div>
+
+    </div>
+    
+</body>
+
+<script>
+    let mouseDown = false;
+    let timerStart = false;
+    const buttons = document.querySelectorAll('[data-time]');
+    const resetButton = document.querySelector('[data-time=reset]');
+    const toggle = document.querySelector('[data-time=start]');
+    let time_left = document.querySelector('.time');
+    time_left.textContent = "00:00:00";
+    let numsLeft = 5;
+    let timeArray = [0,0,0,0,0,0];
+    let countdown;
+    let countedup;
+    let countingUp = false;
+    let countingDown = false;
+    let isPaused = true;
+    let storedSeconds = 0;
+    let storedSecondsUp = 0;
+    let audio = new Audio('alarmsound.mov');
+    
+    function updateTime(num) {
+        if(numsLeft < 0) return;
+
+        if(num.textContent == "0" && numsLeft === 5) return;
+
+        for(let i = 0; i < 5; i++) {
+            timeArray[i] = timeArray[i+1];
+        }
+        timeArray[5] = parseInt(num.textContent);
+        numsLeft--;
+        newTimeArray = [...timeArray];
+        newTimeArray.splice(2, 0, ":");
+        newTimeArray.splice(5, 0, ":");
+        time_left.textContent = newTimeArray.join("");
+
+}
+
+function displayTime(timeArray) {
+    clearInterval(countdown);
+    let total;
+
+    if(storedSeconds == 0) { 
+        const hours = parseInt((timeArray.slice(0,2)).join(""));
+        const min = parseInt((timeArray.slice(2,4)).join(""));
+        const seconds = parseInt((timeArray.slice(4,6)).join(""));
+        total = (hours*3600 + min*60 + seconds) * 1000 + Date.now();
+        showTime((hours*3600 + min*60 + seconds));
+    } else {
+        total = storedSeconds * 1000 + Date.now();
+
+        showTime(storedSeconds);
+    }
+
+    countdown = setInterval(() => {
+
+        const secondsLeft = Math.round((total - Date.now()) / 1000);
+        if(secondsLeft <= 0) {
+            if(!audio) return;
+            audio.play();
+            clearInterval(countdown);
+            time_left.classList.add("timeUp");
+            toggle.innerHTML = "OK";
+            timeArray = [0,0,0,0,0,0];
+            time_left.textContent = "00:00:00";
+        }
+
+        if(isPaused) {
+            storedSeconds = secondsLeft + 1;
+            clearInterval(countdown);
+            return;
+        }
+
+        showTime(secondsLeft);
+    }, 1000);
+}
+
+function showTime(secondsLeft){
+    const hours = Math.floor(secondsLeft / 3600);
+    const mins = Math.floor(secondsLeft / 60) - (hours * 60);
+    const seconds = secondsLeft % 60;
+    const display = `${hours <= 0 ? '' : hours + ":"}${(mins < 10 && hours > 0) ? '0' : ''}${mins <=0 ? '' : mins + ":"}${(seconds < 10 && mins > 0) ? '0' : ''}${seconds}`;
+    time_left.textContent = display;
+    document.title = display;
+}
+
+function timerToggle(startTimer) {
+    if (startTimer) {
+
+        if(numsLeft === 5) {
+
+            if(toggle.innerHTML == "START") {
+                countUp();
+                countingUp = true;
+                isPaused = false;
+                toggle.innerHTML = "PAUSE";
+                toggle.classList.add("long");
+            } else {
+                toggle.innerHTML = "START";
+                toggle.classList.remove("long");
+                timerStart = false;
+            }
+
+        } else {
+            numsLeft = -1;
+            countingDown = true;
+            isPaused = false;
+            toggle.innerHTML = "PAUSE";
+            toggle.classList.add("long");
+            displayTime(timeArray, storedSeconds);
+        }
+    } else {
+        toggle.innerHTML = "START";
+        toggle.classList.remove("long");
+        isPaused = true;
+        
+    }
+}
+
+function countUp() {
+    const curDate = Date.now();
+
+
+    countedup = setInterval(() => {
+
+    const secondsLeft = Math.round((Date.now() - curDate)/1000 + storedSecondsUp);
+    
+    if(isPaused) {
+        storedSecondsUp = secondsLeft -1;
+        clearInterval(countedup);
+        return;
+    }
+
+      
+        showTime(secondsLeft);
+    }, 1000);
+    
+
+}
+
+function click() {
+    if(countingUp && this !== toggle & this !== resetButton) return;
+    if(countingDown && this !== toggle & this !== resetButton) return;
+
+    if(this !== toggle && this != resetButton) {
+        updateTime(this);
+    }
+
+    this.classList.add("active");
+    if(this !== toggle) {
+        this.classList.add("colorChange");
+    }
+
+    mouseDown = true;
+    
+    if(this === toggle) {
+        if(toggle.innerHTML == "OK") {
+            reset();
+            return;
+        }
+        else {
+            timerStart = !timerStart;
+            timerToggle(timerStart);
+        }
+    }
+
+    if(this == resetButton) {
+       reset();
+    }
+}
+
+function reset() {
+    countingUp = false;
+    countingDown = false;
+    audio.pause();
+    audio.currentTime = 0;
+    toggle.innerHTML = "START";
+    toggle.classList.remove("long");
+    timerStart = false;
+    numsLeft = 5;
+    timeArray = [0,0,0,0,0,0];
+    time_left.textContent = "00:00:00";
+    clearInterval(countdown);
+    clearInterval(countedup);
+
+    document.title = "Timer";
+    time_left.classList.remove("timeUp");
+    storedSeconds = 0;
+    storedSecondsUp = 0;
+}
+
+function unClick() {
+    mouseDown = false;
+    this.classList.remove("active");
+
+    if(this !== toggle) {
+        this.classList.remove("colorChange");
+    }
+}
+
+buttons.forEach(button => button.addEventListener('mousedown', click));
+buttons.forEach(button => button.addEventListener('mouseup', unClick));
+buttons.forEach(button => button.addEventListener('mouseout', unClick));
+
+</script>
+</html>
